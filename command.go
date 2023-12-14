@@ -134,6 +134,9 @@ func (cc *commandCall) run() (outputs []any, err error) {
 		for _, out := range cc.cmd.fn.Call(inputs) {
 			outputs = append(outputs, out.Interface())
 		}
+		if e, ok := outputs[len(outputs)-1].(error); ok {
+			err = &CommandRuntimeError{Err: e}
+		}
 	}
 
 	return

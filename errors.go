@@ -41,3 +41,15 @@ func (e ArgConversionError) Error() string {
 func (e ArgConversionError) Unwrap() error {
 	return e.Err
 }
+
+type CommandRuntimeError struct {
+	Err error
+}
+
+func (e CommandRuntimeError) Error() string {
+	return fmt.Sprintf("command runtime error: %v", e.Err)
+}
+
+func (e CommandRuntimeError) Unwrap() error {
+	return e.Err
+}

@@ -56,10 +56,20 @@ var testCases = []TestCase{
 		ExpectedError: new(ArgCountMismatchError),
 	},
 	{
-		Name:          "invalid arg count #1",
+		Name:          "invalid arg count #2",
 		Callback:      testCtxTestVarFound,
 		Args:          []string{"1"},
 		ExpectedError: new(ArgCountMismatchError),
+	},
+	{
+		Name:          "runtime error #1",
+		Callback:      returnError,
+		ExpectedError: new(CommandRuntimeError),
+	},
+	{
+		Name:          "runtime error #2",
+		Callback:      returnError,
+		ExpectedError: assert.AnError,
 	},
 }
 
@@ -74,14 +84,14 @@ func TestCommand(t *testing.T) {
 				tc.Ctx = context.Background()
 			}
 			results, err := cmd.Call(tc.Ctx, tc.Args)
-			require.Equal(t, len(tc.ExpectedResults), len(results))
 			if tc.ExpectedError != nil {
 				assert.ErrorAs(t, err, &tc.ExpectedError)
 			} else {
 				assert.NoError(t, err)
-			}
-			for i, r := range results {
-				assert.Equal(t, tc.ExpectedResults[i], r)
+				require.Equal(t, len(tc.ExpectedResults), len(results))
+				for i, r := range results {
+					assert.Equal(t, tc.ExpectedResults[i], r)
+				}
 			}
 		})
 	}
@@ -109,4 +119,8 @@ func add(nums ...int) (sum int) {
 
 func concat(a, b string) string {
 	return a + b
+}
+
+func returnError() error {
+	return assert.AnError
 }
