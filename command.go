@@ -15,6 +15,7 @@ type Command struct {
 	fn                   reflect.Value
 	fnType               reflect.Type
 	numNonCtxInputs      int
+	numOutputs           int
 	inputHandlers        []commandInputHandler
 	isVariadic           bool
 	variadicInputHandler commandInputHandler
@@ -29,6 +30,7 @@ func NewCommand(callback any) (*Command, error) {
 	fnType := fn.Type()
 	isVariadic := fnType.IsVariadic()
 	numInputs := fnType.NumIn()
+	numOutputs := fnType.NumOut()
 
 	numNonCtxInputs := numInputs
 	inputHandlers := make([]commandInputHandler, numInputs)
@@ -57,6 +59,7 @@ func NewCommand(callback any) (*Command, error) {
 		fn:                   fn,
 		fnType:               fnType,
 		numNonCtxInputs:      numNonCtxInputs,
+		numOutputs:           numOutputs,
 		inputHandlers:        inputHandlers,
 		isVariadic:           isVariadic,
 		variadicInputHandler: variadicInputHandler,
@@ -126,9 +129,11 @@ func (cc *commandCall) run() (outputs []any, err error) {
 		inputs = append(inputs, in)
 	}
 
-	outputs = make([]any, 0, len(cc.args))
-	for _, out := range cc.cmd.fn.Call(inputs) {
-		outputs = append(outputs, out.Interface())
+	if cc.cmd.numOutputs > 0 {
+		outputs = make([]any, 0, cc.cmd.numOutputs)
+		for _, out := range cc.cmd.fn.Call(inputs) {
+			outputs = append(outputs, out.Interface())
+		}
 	}
 
 	return
