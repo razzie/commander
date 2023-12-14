@@ -2,7 +2,6 @@ package commander
 
 import (
 	"context"
-	"fmt"
 )
 
 type Commander struct {
@@ -31,7 +30,7 @@ func (cmdr *Commander) UnregisterCommand(cmd string) {
 func (cmdr *Commander) Call(ctx context.Context, cmd string, args []string) ([]any, error) {
 	c, ok := cmdr.cmds[cmd]
 	if !ok {
-		return nil, fmt.Errorf("unknown command: %s", cmd)
+		return nil, &UnknownCommandError{Cmd: cmd}
 	}
 	return c.Call(ctx, args)
 }

@@ -23,7 +23,7 @@ type Command struct {
 func NewCommand(callback any) (*Command, error) {
 	fn := reflect.ValueOf(callback)
 	if fn.Kind() != reflect.Func {
-		return nil, fmt.Errorf("not a function")
+		return nil, ErrNotFunction
 	}
 
 	fnType := fn.Type()
@@ -65,9 +65,16 @@ func NewCommand(callback any) (*Command, error) {
 
 func (cmd *Command) checkArgs(args []string) error {
 	if cmd.isVariadic && len(args) < cmd.numNonCtxInputs-1 {
-		return fmt.Errorf("expected at least %d argument(s), got %d", cmd.numNonCtxInputs-1, len(args))
+		return &ArgCountMismatchError{
+			Want:     cmd.numNonCtxInputs - 1,
+			Got:      len(args),
+			Variadic: true,
+		}
 	} else if !cmd.isVariadic && len(args) != cmd.numNonCtxInputs {
-		return fmt.Errorf("expected %d argument(s), got %d", cmd.numNonCtxInputs, len(args))
+		return &ArgCountMismatchError{
+			Want: cmd.numNonCtxInputs,
+			Got:  len(args),
+		}
 	}
 	return nil
 }
@@ -142,13 +149,21 @@ func cmdHandleAnyArg(targetType reflect.Type) commandInputHandler {
 		arg := cc.popArg()
 		defer func() {
 			if r := recover(); r != nil {
-				err = fmt.Errorf("failed to convert arg %q to %s: %v", arg, targetType.Name(), r)
+				err = &ArgConversionError{
+					Arg:        arg,
+					TargetType: targetType,
+					Err:        fmt.Errorf("%v", r),
+				}
 			}
 		}()
 		result := reflect.New(targetType)
 		_, err = fmt.Sscan(arg, result.Interface())
 		if err != nil {
-			err = fmt.Errorf("failed to convert arg %q to %s: %v", arg, targetType.Name(), err)
+			err = &ArgConversionError{
+				Arg:        arg,
+				TargetType: targetType,
+				Err:        err,
+			}
 		}
 		return reflect.Indirect(result), err
 	}
