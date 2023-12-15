@@ -69,7 +69,7 @@ var testCases = []TestCase{
 	{
 		Name:          "runtime error #2",
 		Callback:      returnError,
-		ExpectedError: assert.AnError,
+		ExpectedError: new(customError),
 	},
 }
 
@@ -121,6 +121,12 @@ func concat(a, b string) string {
 	return a + b
 }
 
+type customError struct{}
+
+func (customError) Error() string {
+	return "a custom error for testing"
+}
+
 func returnError() error {
-	return assert.AnError
+	return &customError{}
 }
