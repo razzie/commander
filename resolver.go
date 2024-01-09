@@ -32,14 +32,6 @@ func (ctx *ResolverContext) NextArg() string {
 	return arg
 }
 
-type ResolverBinding func(ctx *ResolverContext) (reflect.Value, error)
-
-func BindResolver(typ reflect.Type, resolver Resolver) ResolverBinding {
-	return func(ctx *ResolverContext) (reflect.Value, error) {
-		return resolver.Resolve(typ, ctx)
-	}
-}
-
 func ResolverFunc[T any](resolve func(arg string) (T, error)) Resolver {
 	var t T
 	return &resolver{
@@ -61,6 +53,14 @@ func ContextResolverFunc[T any](resolve func(ctx context.Context) (T, error)) Re
 			v, err := resolve(ctx)
 			return reflect.ValueOf(v), err
 		},
+	}
+}
+
+type resolverBinding func(ctx *ResolverContext) (reflect.Value, error)
+
+func bindResolver(typ reflect.Type, resolver Resolver) resolverBinding {
+	return func(ctx *ResolverContext) (reflect.Value, error) {
+		return resolver.Resolve(typ, ctx)
 	}
 }
 

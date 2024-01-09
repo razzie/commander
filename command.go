@@ -11,9 +11,9 @@ type Command struct {
 	fnType               reflect.Type
 	numNonCtxInputs      int
 	numOutputs           int
-	inputHandlers        []ResolverBinding
+	inputHandlers        []resolverBinding
 	isVariadic           bool
-	variadicInputHandler ResolverBinding
+	variadicInputHandler resolverBinding
 }
 
 func NewCommand(callback any, resolvers ...Resolver) (*Command, error) {
@@ -28,7 +28,7 @@ func NewCommand(callback any, resolvers ...Resolver) (*Command, error) {
 	numOutputs := fnType.NumOut()
 
 	numNonCtxInputs := 0
-	inputHandlers := make([]ResolverBinding, numInputs)
+	inputHandlers := make([]resolverBinding, numInputs)
 	for i := range inputHandlers {
 		inputType := fnType.In(i)
 		if isVariadic && i == numInputs-1 {
@@ -38,9 +38,9 @@ func NewCommand(callback any, resolvers ...Resolver) (*Command, error) {
 		if resolver.RequiresArg(inputType) {
 			numNonCtxInputs++
 		}
-		inputHandlers[i] = BindResolver(inputType, resolver)
+		inputHandlers[i] = bindResolver(inputType, resolver)
 	}
-	var variadicInputHandler ResolverBinding
+	var variadicInputHandler resolverBinding
 	if isVariadic {
 		variadicInputHandler = inputHandlers[len(inputHandlers)-1]
 		inputHandlers = inputHandlers[:len(inputHandlers)-1]
