@@ -13,6 +13,7 @@ func TestCommand(t *testing.T) {
 	type testcase struct {
 		Name            string
 		Callback        any
+		Resolvers       []Resolver
 		CallbackError   error
 		Ctx             context.Context
 		Args            []string
@@ -78,11 +79,25 @@ func TestCommand(t *testing.T) {
 			Callback:      returnError,
 			ExpectedError: new(customError),
 		},
+		{
+			Name:            "resolver #1",
+			Callback:        echo,
+			Resolvers:       []Resolver{ResolverFunc(stringResolver)},
+			Args:            []string{"hello"},
+			ExpectedResults: []any{"hellohello"},
+		},
+		{
+			Name:            "resolver #2",
+			Callback:        echo,
+			Resolvers:       []Resolver{ContextResolverFunc(ctxStringResolver)},
+			Ctx:             context.WithValue(context.Background(), ctxTestVar, "hello"),
+			ExpectedResults: []any{"hello"},
+		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.Name, func(t *testing.T) {
-			cmd, err := NewCommand(tc.Callback)
+			cmd, err := NewCommand(tc.Callback, tc.Resolvers...)
 			if tc.CallbackError != nil {
 				assert.Nil(t, cmd)
 				assert.ErrorAs(t, err, &tc.CallbackError)
@@ -91,9 +106,6 @@ func TestCommand(t *testing.T) {
 			assert.NoError(t, err)
 			require.NotNil(t, cmd)
 
-			if tc.Ctx == nil {
-				tc.Ctx = context.Background()
-			}
 			results, err := cmd.Call(tc.Ctx, tc.Args)
 			if tc.ExpectedError != nil {
 				assert.ErrorAs(t, err, &tc.ExpectedError)
@@ -135,4 +147,16 @@ func (customError) Error() string {
 
 func returnError() error {
 	return &customError{}
+}
+
+func echo(str string) string {
+	return str
+}
+
+func stringResolver(arg string) (string, error) {
+	return arg + arg, nil
+}
+
+func ctxStringResolver(ctx context.Context) (string, error) {
+	return ctx.Value(ctxTestVar).(string), nil
 }
