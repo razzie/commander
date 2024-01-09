@@ -57,11 +57,23 @@ func ContextResolverFunc[T any](resolve func(ctx context.Context) (T, error)) Re
 	}
 }
 
-type resolverBinding func(ctx *ResolverContext) (reflect.Value, error)
+type resolverBinding struct {
+	typ      reflect.Type
+	resolver Resolver
+}
+
+func (b *resolverBinding) requiresArg() bool {
+	return b.resolver.RequiresArg(b.typ)
+}
+
+func (b *resolverBinding) resolve(ctx *ResolverContext) (reflect.Value, error) {
+	return b.resolver.Resolve(b.typ, ctx)
+}
 
 func bindResolver(typ reflect.Type, resolver Resolver) resolverBinding {
-	return func(ctx *ResolverContext) (reflect.Value, error) {
-		return resolver.Resolve(typ, ctx)
+	return resolverBinding{
+		typ:      typ,
+		resolver: resolver,
 	}
 }
 

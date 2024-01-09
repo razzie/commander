@@ -2,6 +2,8 @@ package commander
 
 import (
 	"context"
+	"io"
+	"reflect"
 	"strconv"
 	"testing"
 
@@ -94,6 +96,13 @@ func TestCommand(t *testing.T) {
 			ExpectedResults: []any{"hello"},
 		},
 		{
+			Name:            "resolver #3",
+			Callback:        add,
+			Resolvers:       []Resolver{new(customResolver)},
+			Ctx:             context.WithValue(context.Background(), ctxTestVar, []int{1, 2, 3}),
+			ExpectedResults: []any{6},
+		},
+		{
 			Name:          "no output",
 			Callback:      noOutput,
 			ExpectedError: new(CommandRuntimeError),
@@ -168,4 +177,29 @@ func stringResolver(arg string) (string, error) {
 
 func ctxStringResolver(ctx context.Context) (string, error) {
 	return ctx.Value(ctxTestVar).(string), nil
+}
+
+type customResolver struct{}
+
+func (r *customResolver) CanResolve(typ reflect.Type) bool {
+	var i int
+	return reflect.TypeOf(i).AssignableTo(typ)
+}
+
+func (r *customResolver) RequiresArg(typ reflect.Type) bool {
+	return false
+}
+
+func (r *customResolver) Resolve(typ reflect.Type, ctx *ResolverContext) (reflect.Value, error) {
+	list, ok := ctx.State[r].([]int)
+	if !ok {
+		list = ctx.Value(ctxTestVar).([]int)
+	}
+	if len(list) > 0 {
+		arg := list[0]
+		list = list[1:]
+		ctx.State[r] = list
+		return reflect.ValueOf(arg), nil
+	}
+	return reflect.Value{}, io.EOF
 }

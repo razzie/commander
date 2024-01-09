@@ -3,6 +3,7 @@ package commander
 import (
 	"context"
 	"fmt"
+	"io"
 	"reflect"
 )
 
@@ -92,18 +93,33 @@ func (cmd *Command) Call(ctx context.Context, args []string) (outputs []any, err
 
 	var inputs []reflect.Value
 	for _, h := range cmd.inputHandlers {
-		in, err := h(rctx)
+		in, err := h.resolve(rctx)
 		if err != nil {
 			return nil, err
 		}
 		inputs = append(inputs, in)
 	}
-	for len(rctx.Args) > 0 {
-		in, err := cmd.variadicInputHandler(rctx)
-		if err != nil {
-			return nil, err
+	if cmd.isVariadic {
+		if cmd.variadicInputHandler.requiresArg() {
+			for len(rctx.Args) > 0 {
+				in, err := cmd.variadicInputHandler.resolve(rctx)
+				if err != nil {
+					return nil, err
+				}
+				inputs = append(inputs, in)
+			}
+		} else {
+			for {
+				in, err := cmd.variadicInputHandler.resolve(rctx)
+				if err != nil {
+					if err == io.EOF {
+						break
+					}
+					return nil, err
+				}
+				inputs = append(inputs, in)
+			}
 		}
-		inputs = append(inputs, in)
 	}
 
 	if cmd.numOutputs > 0 {
