@@ -9,74 +9,85 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type TestCase struct {
-	Name            string
-	Callback        any
-	Ctx             context.Context
-	Args            []string
-	ExpectedResults []any
-	ExpectedError   error
-}
-
-var testCases = []TestCase{
-	{
-		Name:            "string arg",
-		Callback:        strconv.Atoi,
-		Args:            []string{"1"},
-		ExpectedResults: []any{1, nil},
-	},
-	{
-		Name:            "int arg",
-		Callback:        strconv.Itoa,
-		Args:            []string{"1"},
-		ExpectedResults: []any{"1"},
-	},
-	{
-		Name:            "context",
-		Callback:        testCtxTestVarFound,
-		Ctx:             context.WithValue(context.Background(), ctxTestVar, 1),
-		ExpectedResults: []any{true},
-	},
-	{
-		Name:            "variadic",
-		Callback:        add,
-		Args:            []string{"1", "2", "3"},
-		ExpectedResults: []any{6},
-	},
-	{
-		Name:          "arg conversion fail",
-		Callback:      strconv.Itoa,
-		Args:          []string{"a"},
-		ExpectedError: new(ArgConversionError),
-	},
-	{
-		Name:          "invalid arg count #1",
-		Callback:      concat,
-		Args:          []string{"1"},
-		ExpectedError: new(ArgCountMismatchError),
-	},
-	{
-		Name:          "invalid arg count #2",
-		Callback:      testCtxTestVarFound,
-		Args:          []string{"1"},
-		ExpectedError: new(ArgCountMismatchError),
-	},
-	{
-		Name:          "runtime error #1",
-		Callback:      returnError,
-		ExpectedError: new(CommandRuntimeError),
-	},
-	{
-		Name:          "runtime error #2",
-		Callback:      returnError,
-		ExpectedError: new(customError),
-	},
-}
-
 func TestCommand(t *testing.T) {
-	for _, tc := range testCases {
+	type testcase struct {
+		Name            string
+		Callback        any
+		CallbackError   error
+		Ctx             context.Context
+		Args            []string
+		ExpectedResults []any
+		ExpectedError   error
+	}
+
+	tests := []testcase{
+		{
+			Name:          "not a function",
+			Callback:      1,
+			CallbackError: new(NotFunctionError),
+		},
+		{
+			Name:            "string arg",
+			Callback:        strconv.Atoi,
+			Args:            []string{"1"},
+			ExpectedResults: []any{1, nil},
+		},
+		{
+			Name:            "int arg",
+			Callback:        strconv.Itoa,
+			Args:            []string{"1"},
+			ExpectedResults: []any{"1"},
+		},
+		{
+			Name:            "context",
+			Callback:        testCtxTestVarFound,
+			Ctx:             context.WithValue(context.Background(), ctxTestVar, 1),
+			ExpectedResults: []any{true},
+		},
+		{
+			Name:            "variadic",
+			Callback:        add,
+			Args:            []string{"1", "2", "3"},
+			ExpectedResults: []any{6},
+		},
+		{
+			Name:          "arg conversion fail",
+			Callback:      strconv.Itoa,
+			Args:          []string{"a"},
+			ExpectedError: new(ArgConversionError),
+		},
+		{
+			Name:          "invalid arg count #1",
+			Callback:      concat,
+			Args:          []string{"1"},
+			ExpectedError: new(ArgCountMismatchError),
+		},
+		{
+			Name:          "invalid arg count #2",
+			Callback:      testCtxTestVarFound,
+			Args:          []string{"1"},
+			ExpectedError: new(ArgCountMismatchError),
+		},
+		{
+			Name:          "runtime error #1",
+			Callback:      returnError,
+			ExpectedError: new(CommandRuntimeError),
+		},
+		{
+			Name:          "runtime error #2",
+			Callback:      returnError,
+			ExpectedError: new(customError),
+		},
+	}
+
+	for _, tc := range tests {
 		t.Run(tc.Name, func(t *testing.T) {
 			cmd, err := NewCommand(tc.Callback)
+			if tc.CallbackError != nil {
+				assert.Nil(t, cmd)
+				assert.ErrorAs(t, err, &tc.CallbackError)
+				return
+			}
 			assert.NoError(t, err)
 			require.NotNil(t, cmd)
 
@@ -95,11 +106,6 @@ func TestCommand(t *testing.T) {
 			}
 		})
 	}
-	t.Run("not a function", func(t *testing.T) {
-		cmd, err := NewCommand(1)
-		assert.Nil(t, cmd)
-		assert.ErrorIs(t, err, ErrNotFunction)
-	})
 }
 
 type ctxKey string

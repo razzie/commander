@@ -5,7 +5,13 @@ import (
 	"reflect"
 )
 
-var ErrNotFunction = fmt.Errorf("not a function")
+var ErrNotFunction error = new(NotFunctionError)
+
+type NotFunctionError struct{}
+
+func (NotFunctionError) Error() string {
+	return "not a function"
+}
 
 type UnknownCommandError struct {
 	Cmd string
