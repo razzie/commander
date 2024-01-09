@@ -50,7 +50,7 @@ func ContextResolverFunc[T any](resolve func(ctx context.Context) (T, error)) Re
 		typ:    reflect.TypeOf(t),
 		useArg: false,
 		resolve: func(ctx *ResolverContext) (reflect.Value, error) {
-			v, err := resolve(ctx)
+			v, err := resolve(ctx.Context)
 			return reflect.ValueOf(v), err
 		},
 	}
