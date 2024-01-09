@@ -87,6 +87,7 @@ func (cmd *Command) Call(ctx context.Context, args []string) (outputs []any, err
 	rctx := &ResolverContext{
 		Context: ctx,
 		Args:    args,
+		State:   make(map[Resolver]any),
 	}
 
 	var inputs []reflect.Value

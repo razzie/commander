@@ -23,7 +23,8 @@ type Resolver interface {
 
 type ResolverContext struct {
 	context.Context
-	Args []string
+	Args  []string
+	State map[Resolver]any
 }
 
 func (ctx *ResolverContext) NextArg() string {
