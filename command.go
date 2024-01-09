@@ -113,6 +113,8 @@ func (cmd *Command) Call(ctx context.Context, args []string) (outputs []any, err
 		if e, ok := outputs[len(outputs)-1].(error); ok {
 			err = &CommandRuntimeError{Err: e}
 		}
+	} else {
+		cmd.fn.Call(inputs)
 	}
 
 	return

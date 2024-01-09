@@ -93,6 +93,11 @@ func TestCommand(t *testing.T) {
 			Ctx:             context.WithValue(context.Background(), ctxTestVar, "hello"),
 			ExpectedResults: []any{"hello"},
 		},
+		{
+			Name:          "no output",
+			Callback:      noOutput,
+			ExpectedError: new(CommandRuntimeError),
+		},
 	}
 
 	for _, tc := range tests {
@@ -151,6 +156,10 @@ func returnError() error {
 
 func echo(str string) string {
 	return str
+}
+
+func noOutput() {
+	panic("no output")
 }
 
 func stringResolver(arg string) (string, error) {
