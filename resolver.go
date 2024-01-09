@@ -10,6 +10,9 @@ var (
 	resolveString   = ResolverFunc(func(arg string) (string, error) { return arg, nil })
 	resolveContext  = ContextResolverFunc(func(ctx context.Context) (context.Context, error) { return ctx, nil })
 	resolveAnything = new(fallbackResolver)
+
+	contextType = reflect.TypeOf((*context.Context)(nil)).Elem()
+	stringType  = reflect.TypeOf((*string)(nil)).Elem()
 )
 
 type Resolver interface {
@@ -110,4 +113,20 @@ func (r *fallbackResolver) Resolve(typ reflect.Type, ctx *ResolverContext) (v re
 		}
 	}
 	return reflect.Indirect(result), err
+}
+
+func findResolver(typ reflect.Type, resolvers []Resolver) Resolver {
+	for _, r := range resolvers {
+		if r.CanResolve(typ) {
+			return r
+		}
+	}
+	switch typ {
+	case stringType:
+		return resolveString
+	case contextType:
+		return resolveContext
+	default:
+		return resolveAnything
+	}
 }

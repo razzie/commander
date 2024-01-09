@@ -6,11 +6,6 @@ import (
 	"reflect"
 )
 
-var (
-	contextType = reflect.TypeOf((*context.Context)(nil)).Elem()
-	stringType  = reflect.TypeOf((*string)(nil)).Elem()
-)
-
 type Command struct {
 	fn                   reflect.Value
 	fnType               reflect.Type
@@ -21,7 +16,7 @@ type Command struct {
 	variadicInputHandler ResolverBinding
 }
 
-func NewCommand(callback any) (*Command, error) {
+func NewCommand(callback any, resolvers ...Resolver) (*Command, error) {
 	fn := reflect.ValueOf(callback)
 	if fn.Kind() != reflect.Func {
 		return nil, ErrNotFunction
@@ -32,22 +27,18 @@ func NewCommand(callback any) (*Command, error) {
 	numInputs := fnType.NumIn()
 	numOutputs := fnType.NumOut()
 
-	numNonCtxInputs := numInputs
+	numNonCtxInputs := 0
 	inputHandlers := make([]ResolverBinding, numInputs)
 	for i := range inputHandlers {
 		inputType := fnType.In(i)
 		if isVariadic && i == numInputs-1 {
 			inputType = inputType.Elem()
 		}
-		switch inputType {
-		case contextType:
-			numNonCtxInputs--
-			inputHandlers[i] = BindResolver(inputType, resolveContext)
-		case stringType:
-			inputHandlers[i] = BindResolver(inputType, resolveString)
-		default:
-			inputHandlers[i] = BindResolver(inputType, resolveAnything)
+		resolver := findResolver(inputType, resolvers)
+		if resolver.RequiresArg(inputType) {
+			numNonCtxInputs++
 		}
+		inputHandlers[i] = BindResolver(inputType, resolver)
 	}
 	var variadicInputHandler ResolverBinding
 	if isVariadic {
