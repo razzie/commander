@@ -16,9 +16,9 @@ type Command struct {
 	fnType               reflect.Type
 	numNonCtxInputs      int
 	numOutputs           int
-	inputHandlers        []commandInputHandler
+	inputHandlers        []ResolverBinding
 	isVariadic           bool
-	variadicInputHandler commandInputHandler
+	variadicInputHandler ResolverBinding
 }
 
 func NewCommand(callback any) (*Command, error) {
@@ -33,7 +33,7 @@ func NewCommand(callback any) (*Command, error) {
 	numOutputs := fnType.NumOut()
 
 	numNonCtxInputs := numInputs
-	inputHandlers := make([]commandInputHandler, numInputs)
+	inputHandlers := make([]ResolverBinding, numInputs)
 	for i := range inputHandlers {
 		inputType := fnType.In(i)
 		if isVariadic && i == numInputs-1 {
@@ -42,14 +42,14 @@ func NewCommand(callback any) (*Command, error) {
 		switch inputType {
 		case contextType:
 			numNonCtxInputs--
-			inputHandlers[i] = cmdHandleCtx
+			inputHandlers[i] = BindResolver(inputType, resolveContext)
 		case stringType:
-			inputHandlers[i] = cmdHandleStringArg
+			inputHandlers[i] = BindResolver(inputType, resolveString)
 		default:
-			inputHandlers[i] = cmdHandleAnyArg(inputType)
+			inputHandlers[i] = BindResolver(inputType, resolveAnything)
 		}
 	}
-	var variadicInputHandler commandInputHandler
+	var variadicInputHandler ResolverBinding
 	if isVariadic {
 		variadicInputHandler = inputHandlers[len(inputHandlers)-1]
 		inputHandlers = inputHandlers[:len(inputHandlers)-1]
@@ -82,56 +82,41 @@ func (cmd *Command) checkArgs(args []string) error {
 	return nil
 }
 
-func (cmd *Command) Call(ctx context.Context, args []string) ([]any, error) {
+func (cmd *Command) Call(ctx context.Context, args []string) (outputs []any, err error) {
 	if err := cmd.checkArgs(args); err != nil {
 		return nil, err
 	}
-	cc := &commandCall{
-		cmd:  cmd,
-		ctx:  ctx,
-		args: args,
-	}
-	return cc.run()
-}
 
-type commandCall struct {
-	cmd  *Command
-	ctx  context.Context
-	args []string
-}
-
-func (cc *commandCall) popArg() string {
-	arg := cc.args[0]
-	cc.args = cc.args[1:]
-	return arg
-}
-
-func (cc *commandCall) run() (outputs []any, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("panic: %v", r)
 		}
 	}()
 
+	rctx := &ResolverContext{
+		Context: ctx,
+		Args:    args,
+	}
+
 	var inputs []reflect.Value
-	for _, h := range cc.cmd.inputHandlers {
-		in, err := h(cc)
+	for _, h := range cmd.inputHandlers {
+		in, err := h(rctx)
 		if err != nil {
 			return nil, err
 		}
 		inputs = append(inputs, in)
 	}
-	for len(cc.args) > 0 {
-		in, err := cc.cmd.variadicInputHandler(cc)
+	for len(rctx.Args) > 0 {
+		in, err := cmd.variadicInputHandler(rctx)
 		if err != nil {
 			return nil, err
 		}
 		inputs = append(inputs, in)
 	}
 
-	if cc.cmd.numOutputs > 0 {
-		outputs = make([]any, 0, cc.cmd.numOutputs)
-		for _, out := range cc.cmd.fn.Call(inputs) {
+	if cmd.numOutputs > 0 {
+		outputs = make([]any, 0, cmd.numOutputs)
+		for _, out := range cmd.fn.Call(inputs) {
 			outputs = append(outputs, out.Interface())
 		}
 		if e, ok := outputs[len(outputs)-1].(error); ok {
@@ -140,39 +125,4 @@ func (cc *commandCall) run() (outputs []any, err error) {
 	}
 
 	return
-}
-
-type commandInputHandler func(*commandCall) (reflect.Value, error)
-
-func cmdHandleCtx(cc *commandCall) (reflect.Value, error) {
-	return reflect.ValueOf(cc.ctx), nil
-}
-
-func cmdHandleStringArg(cc *commandCall) (reflect.Value, error) {
-	return reflect.ValueOf(cc.popArg()), nil
-}
-
-func cmdHandleAnyArg(targetType reflect.Type) commandInputHandler {
-	return func(cc *commandCall) (v reflect.Value, err error) {
-		arg := cc.popArg()
-		defer func() {
-			if r := recover(); r != nil {
-				err = &ArgConversionError{
-					Arg:        arg,
-					TargetType: targetType,
-					Err:        fmt.Errorf("%v", r),
-				}
-			}
-		}()
-		result := reflect.New(targetType)
-		_, err = fmt.Sscan(arg, result.Interface())
-		if err != nil {
-			err = &ArgConversionError{
-				Arg:        arg,
-				TargetType: targetType,
-				Err:        err,
-			}
-		}
-		return reflect.Indirect(result), err
-	}
 }
